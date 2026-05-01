@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="${NEXUS_SKILLS_DIR:-$(cd "$SCRIPT_DIR/../../../.." && pwd -P)}"
+REMOTE_VERSION_URL="${NEXUS_SKILLS_REMOTE_VERSION_URL:-https://raw.githubusercontent.com/lokislh/nexus-skills/main/VERSION}"
+REMOTE_NAME="${NEXUS_SKILLS_REMOTE:-origin}"
+BRANCH="${NEXUS_SKILLS_BRANCH:-main}"
+SETUP_ARGS="${NEXUS_SKILLS_SETUP_ARGS:---host all}"
+
+fetch_remote_version() {
+  local source="$1"
+  if [ -f "$source" ]; then
+    cat "$source"
+    return 0
+  fi
+  curl -fsSL --max-time 10 "$source"
+}
+
+normalize_version() {
+  tr -d '[:space:]'
+}
+
+if [ ! -d "$REPO_ROOT/.git" ]; then
+  printf 'NOT_GIT_CHECKOUT %s\n' "$REPO_ROOT"
+  exit 0
+fi
+
+VERSION_FILE="$REPO_ROOT/VERSION"
+if [ ! -f "$VERSION_FILE" ]; then
+  printf 'FAILED_FETCH unknown\n'
+  exit 0
+fi
+
+LOCAL_VERSION="$(normalize_version < "$VERSION_FILE")"
+REMOTE_VERSION="$(fetch_remote_version "$REMOTE_VERSION_URL" 2>/dev/null | normalize_version || true)"
+
+if ! printf '%s' "$REMOTE_VERSION" | grep -qE '^[0-9]+[.][0-9]+[.][0-9]+$'; then
+  printf 'FAILED_FETCH %s\n' "$LOCAL_VERSION"
+  exit 0
+fi
+
+if [ "$LOCAL_VERSION" = "$REMOTE_VERSION" ]; then
+  printf 'UP_TO_DATE %s\n' "$LOCAL_VERSION"
+  exit 0
+fi
+
+if [ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]; then
+  printf 'BLOCKED_BY_LOCAL_CHANGES %s %s\n' "$LOCAL_VERSION" "$REMOTE_VERSION"
+  exit 0
+fi
+
+if ! git -C "$REPO_ROOT" fetch "$REMOTE_NAME" "$BRANCH" >/dev/null 2>&1; then
+  printf 'FAILED_MERGE %s %s\n' "$LOCAL_VERSION" "$REMOTE_VERSION"
+  exit 0
+fi
+
+if ! git -C "$REPO_ROOT" merge --ff-only "$REMOTE_NAME/$BRANCH" >/dev/null 2>&1; then
+  printf 'FAILED_MERGE %s %s\n' "$LOCAL_VERSION" "$REMOTE_VERSION"
+  exit 0
+fi
+
+# shellcheck disable=SC2086
+(cd "$REPO_ROOT" && ./setup $SETUP_ARGS >/dev/null)
+
+NEW_VERSION="$(normalize_version < "$VERSION_FILE")"
+printf 'UPDATED %s %s\n' "$LOCAL_VERSION" "$NEW_VERSION"
+

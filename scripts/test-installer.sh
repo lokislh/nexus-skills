@@ -37,8 +37,14 @@ HOME="$TMP/home" "$ROOT/setup" --host all --quiet
 assert_link_to_root "$TMP/home/.claude/commands/ingest.md"
 assert_link_to_root "$TMP/home/.claude/commands/query.md"
 assert_link_to_root "$TMP/home/.claude/commands/lint.md"
-for name in grill-session lm-wiki-ingest lm-wiki-query lm-wiki-lint nexus-maintainer second-brain-para; do
+for name in grill-session lm-wiki-ingest lm-wiki-query lm-wiki-lint nexus-maintainer second-brain-para update-nexus-skills; do
   assert_link_to_root "$TMP/home/.codex/skills/$name"
+done
+
+printf 'test: codex uninstall removes owned skill links\n'
+HOME="$TMP/home" "$ROOT/uninstall" --host codex --quiet
+for name in grill-session lm-wiki-ingest lm-wiki-query lm-wiki-lint nexus-maintainer second-brain-para update-nexus-skills; do
+  assert_not_exists "$TMP/home/.codex/skills/$name"
 done
 
 printf 'test: prefixed claude install switches command names\n'
@@ -76,5 +82,12 @@ for skill in "$ROOT"/codex/skills/*/SKILL.md; do
   grep -q '^description:' "$skill" || fail "missing description: $skill"
   grep -q '^version:' "$skill" || fail "missing version: $skill"
 done
+
+printf 'test: updater reports up to date through env override\n'
+printf '%s\n' "$(tr -d '[:space:]' < "$ROOT/VERSION")" > "$TMP/remote-version"
+NEXUS_SKILLS_REMOTE_VERSION_URL="$TMP/remote-version" \
+  "$ROOT/codex/skills/update-nexus-skills/bin/update-nexus-skills" \
+  | grep -q "^UP_TO_DATE $(tr -d '[:space:]' < "$ROOT/VERSION")$" \
+  || fail "updater did not report up to date"
 
 printf 'all installer tests passed\n'

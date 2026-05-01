@@ -131,8 +131,11 @@ uninstall_claude() {
 }
 
 uninstall_codex() {
-  local name
-  for name in lm-wiki-ingest lm-wiki-query lm-wiki-lint nexus-maintainer second-brain-para; do
+  local skill_file skill_dir name
+  for skill_file in "$REPO_ROOT"/codex/skills/*/SKILL.md; do
+    [ -f "$skill_file" ] || continue
+    skill_dir="$(dirname "$skill_file")"
+    name="$(basename "$skill_dir")"
     remove_owned "$CODEX_SKILLS_DIR/$name"
   done
   log "nexus-skills removed (codex): $CODEX_SKILLS_DIR"
@@ -150,4 +153,3 @@ case "$HOST" in
     uninstall_codex
     ;;
 esac
-

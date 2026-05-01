@@ -27,6 +27,7 @@ Codex skills:
 | `nexus-maintainer` | Maintain raw-to-compiled Nexus knowledge. |
 | `second-brain-para` | Route notes through CODE/PARA. |
 | `grill-session` | Stress-test a plan or design one decision at a time. |
+| `update-nexus-skills` | Manually check GitHub and fast-forward this skill pack. |
 
 ## Install
 
@@ -63,6 +64,18 @@ Preview without writing anything:
 ```bash
 ./setup --dry-run --host all
 ```
+
+## Update
+
+Use the Codex skill:
+
+```text
+update nexus-skills
+```
+
+The updater checks GitHub for a newer `VERSION`, requires a clean local checkout,
+fast-forwards `origin/main`, then reruns `./setup --host all`. It never hard
+resets or discards local changes.
 
 ## Uninstall
 
