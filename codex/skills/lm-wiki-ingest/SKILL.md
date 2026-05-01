@@ -1,4 +1,3 @@
-<!-- Adapted from .claude/commands/ingest.md — keep in sync when prompt logic changes -->
 ---
 name: lm-wiki-ingest
 description: >
@@ -10,6 +9,8 @@ description: >
   to wiki/log.md. Never modifies source files or wiki/Synthesis/.
 version: 1.0.0
 ---
+
+<!-- Adapted from .claude/commands/ingest.md — keep in sync when prompt logic changes -->
 
 # LM Wiki — Ingest
 

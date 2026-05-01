@@ -1,4 +1,3 @@
-<!-- Adapted from .claude/commands/query.md — keep in sync when prompt logic changes -->
 ---
 name: lm-wiki-query
 description: >
@@ -10,6 +9,8 @@ description: >
   when it draws from 2+ distinct pages.
 version: 1.0.0
 ---
+
+<!-- Adapted from .claude/commands/query.md — keep in sync when prompt logic changes -->
 
 # LM Wiki — Query
 

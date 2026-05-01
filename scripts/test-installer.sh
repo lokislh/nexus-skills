@@ -77,7 +77,8 @@ assert_not_exists "$TMP/uninstall-home/.claude/commands/ingest.md"
 
 printf 'test: codex skill frontmatter\n'
 for skill in "$ROOT"/codex/skills/*/SKILL.md; do
-  grep -q '^---$' "$skill" || fail "missing frontmatter fence: $skill"
+  first_line="$(sed -n '1p' "$skill")"
+  [ "$first_line" = "---" ] || fail "frontmatter must start on first line: $skill"
   grep -q '^name:' "$skill" || fail "missing name: $skill"
   grep -q '^description:' "$skill" || fail "missing description: $skill"
   grep -q '^version:' "$skill" || fail "missing version: $skill"

@@ -1,4 +1,3 @@
-<!-- Adapted from .claude/commands/lint.md — keep in sync when prompt logic changes -->
 ---
 name: lm-wiki-lint
 description: >
@@ -8,6 +7,8 @@ description: >
   a dated Lint-Report file. Read-only for all existing wiki pages.
 version: 1.0.0
 ---
+
+<!-- Adapted from .claude/commands/lint.md — keep in sync when prompt logic changes -->
 
 # LM Wiki — Lint
 
