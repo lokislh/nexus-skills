@@ -30,7 +30,7 @@ Codex skills:
 ## Install
 
 ```bash
-git clone https://github.com/radubradu/nexus-skills.git ~/.nexus-skills
+git clone https://github.com/lokislh/nexus-skills.git ~/.nexus-skills
 cd ~/.nexus-skills
 ./setup
 ```
@@ -116,4 +116,3 @@ scripts/test-installer.sh
 
 The tests use a temporary `HOME` and do not touch your real Claude or Codex
 directories.
-
