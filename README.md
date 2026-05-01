@@ -26,6 +26,7 @@ Codex skills:
 | `lm-wiki-lint` | Native Codex equivalent of `/lint`. |
 | `nexus-maintainer` | Maintain raw-to-compiled Nexus knowledge. |
 | `second-brain-para` | Route notes through CODE/PARA. |
+| `grill-session` | Stress-test a plan or design one decision at a time. |
 
 ## Install
 

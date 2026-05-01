@@ -37,7 +37,7 @@ HOME="$TMP/home" "$ROOT/setup" --host all --quiet
 assert_link_to_root "$TMP/home/.claude/commands/ingest.md"
 assert_link_to_root "$TMP/home/.claude/commands/query.md"
 assert_link_to_root "$TMP/home/.claude/commands/lint.md"
-for name in lm-wiki-ingest lm-wiki-query lm-wiki-lint nexus-maintainer second-brain-para; do
+for name in grill-session lm-wiki-ingest lm-wiki-query lm-wiki-lint nexus-maintainer second-brain-para; do
   assert_link_to_root "$TMP/home/.codex/skills/$name"
 done
 
@@ -78,4 +78,3 @@ for skill in "$ROOT"/codex/skills/*/SKILL.md; do
 done
 
 printf 'all installer tests passed\n'
-
