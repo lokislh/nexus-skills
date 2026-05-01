@@ -1,0 +1,196 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+HOST="all"
+PREFIX=0
+FORCE=0
+DRY_RUN=0
+QUIET=0
+
+usage() {
+  cat <<'EOF'
+Usage: ./setup [--host claude|codex|all] [--prefix|--no-prefix] [--force] [--dry-run] [--quiet]
+
+Installs nexus-skills by symlinking Claude commands and/or Codex skills.
+
+Options:
+  --host VALUE    Install for claude, codex, or all. Default: all
+  --prefix       Install Claude commands as nexus-ingest, nexus-query, nexus-lint
+  --no-prefix    Install Claude commands as ingest, query, lint. Default
+  --force        Replace existing non-owned targets
+  --dry-run      Print actions without writing
+  --quiet        Suppress normal output
+  -h, --help     Show this help
+EOF
+}
+
+log() {
+  [ "$QUIET" -eq 0 ] && printf '%s\n' "$*" || true
+}
+
+die() {
+  printf 'Error: %s\n' "$*" >&2
+  exit 1
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --host)
+      [ $# -lt 2 ] && die "missing value for --host"
+      HOST="$2"
+      shift 2
+      ;;
+    --host=*)
+      HOST="${1#--host=}"
+      shift
+      ;;
+    --prefix)
+      PREFIX=1
+      shift
+      ;;
+    --no-prefix)
+      PREFIX=0
+      shift
+      ;;
+    --force)
+      FORCE=1
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --quiet|-q)
+      QUIET=1
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      die "unknown option: $1"
+      ;;
+  esac
+done
+
+case "$HOST" in
+  claude|codex|all) ;;
+  *) die "unknown --host value: $HOST (expected claude, codex, or all)" ;;
+esac
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+CLAUDE_SOURCE_DIR="$REPO_ROOT/claude/commands"
+CODEX_SOURCE_DIR="$REPO_ROOT/codex/skills"
+CLAUDE_COMMANDS_DIR="${CLAUDE_COMMANDS_DIR:-$HOME/.claude/commands}"
+CODEX_SKILLS_DIR="${CODEX_SKILLS_DIR:-$HOME/.codex/skills}"
+
+is_owned_link() {
+  local path="$1"
+  local target
+  [ -L "$path" ] || return 1
+  target="$(readlink "$path")"
+  case "$target" in
+    "$REPO_ROOT"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+run_mkdir() {
+  local dir="$1"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    log "mkdir -p $dir"
+  else
+    mkdir -p "$dir"
+  fi
+}
+
+remove_path() {
+  local path="$1"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    log "rm -rf $path"
+  else
+    rm -rf -- "$path"
+  fi
+}
+
+link_path() {
+  local src="$1"
+  local dest="$2"
+
+  [ -e "$src" ] || die "source missing: $src"
+
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    if is_owned_link "$dest"; then
+      remove_path "$dest"
+    elif [ "$FORCE" -eq 1 ]; then
+      log "replacing existing target: $dest"
+      remove_path "$dest"
+    else
+      die "target exists and is not owned by this checkout: $dest (use --force to replace)"
+    fi
+  fi
+
+  run_mkdir "$(dirname "$dest")"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    log "ln -s $src $dest"
+  else
+    ln -s "$src" "$dest"
+  fi
+}
+
+remove_owned_if_present() {
+  local path="$1"
+  if [ -e "$path" ] || [ -L "$path" ]; then
+    if is_owned_link "$path"; then
+      remove_path "$path"
+    fi
+  fi
+}
+
+install_claude() {
+  local cmd src name dest other
+  for cmd in ingest query lint; do
+    src="$CLAUDE_SOURCE_DIR/$cmd.md"
+    if [ "$PREFIX" -eq 1 ]; then
+      name="nexus-$cmd"
+      other="$CLAUDE_COMMANDS_DIR/$cmd.md"
+    else
+      name="$cmd"
+      other="$CLAUDE_COMMANDS_DIR/nexus-$cmd.md"
+    fi
+    dest="$CLAUDE_COMMANDS_DIR/$name.md"
+
+    remove_owned_if_present "$other"
+    link_path "$src" "$dest"
+  done
+  log "nexus-skills ready (claude): $CLAUDE_COMMANDS_DIR"
+}
+
+install_codex() {
+  local skill_dir name dest
+  [ -d "$CODEX_SOURCE_DIR" ] || die "source missing: $CODEX_SOURCE_DIR"
+  for skill_dir in "$CODEX_SOURCE_DIR"/*; do
+    [ -d "$skill_dir" ] || continue
+    [ -f "$skill_dir/SKILL.md" ] || continue
+    name="$(basename "$skill_dir")"
+    dest="$CODEX_SKILLS_DIR/$name"
+    link_path "$skill_dir" "$dest"
+  done
+  log "nexus-skills ready (codex): $CODEX_SKILLS_DIR"
+}
+
+case "$HOST" in
+  claude)
+    install_claude
+    ;;
+  codex)
+    install_codex
+    ;;
+  all)
+    install_claude
+    install_codex
+    ;;
+esac
+

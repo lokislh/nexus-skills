@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HOST="all"
+PREFIX=0
+PREFIX_SET=0
+DRY_RUN=0
+QUIET=0
+
+usage() {
+  cat <<'EOF'
+Usage: ./uninstall [--host claude|codex|all] [--prefix|--no-prefix] [--dry-run] [--quiet]
+
+Removes nexus-skills symlinks. Only symlinks pointing back into this checkout
+are removed.
+
+Options:
+  --host VALUE    Uninstall for claude, codex, or all. Default: all
+  --prefix       Remove prefixed Claude commands: nexus-ingest, nexus-query, nexus-lint
+  --no-prefix    Remove unprefixed Claude commands: ingest, query, lint. Default
+  --dry-run      Print actions without writing
+  --quiet        Suppress normal output
+  -h, --help     Show this help
+EOF
+}
+
+log() {
+  [ "$QUIET" -eq 0 ] && printf '%s\n' "$*" || true
+}
+
+die() {
+  printf 'Error: %s\n' "$*" >&2
+  exit 1
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --host)
+      [ $# -lt 2 ] && die "missing value for --host"
+      HOST="$2"
+      shift 2
+      ;;
+    --host=*)
+      HOST="${1#--host=}"
+      shift
+      ;;
+    --prefix)
+      PREFIX=1
+      PREFIX_SET=1
+      shift
+      ;;
+    --no-prefix)
+      PREFIX=0
+      PREFIX_SET=1
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --quiet|-q)
+      QUIET=1
+      shift
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      die "unknown option: $1"
+      ;;
+  esac
+done
+
+case "$HOST" in
+  claude|codex|all) ;;
+  *) die "unknown --host value: $HOST (expected claude, codex, or all)" ;;
+esac
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+CLAUDE_COMMANDS_DIR="${CLAUDE_COMMANDS_DIR:-$HOME/.claude/commands}"
+CODEX_SKILLS_DIR="${CODEX_SKILLS_DIR:-$HOME/.codex/skills}"
+
+is_owned_link() {
+  local path="$1"
+  local target
+  [ -L "$path" ] || return 1
+  target="$(readlink "$path")"
+  case "$target" in
+    "$REPO_ROOT"/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+remove_owned() {
+  local path="$1"
+  if [ -e "$path" ] || [ -L "$path" ]; then
+    if is_owned_link "$path"; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        log "rm $path"
+      else
+        rm -- "$path"
+      fi
+    else
+      log "skip non-owned target: $path"
+    fi
+  fi
+}
+
+uninstall_claude_one_mode() {
+  local use_prefix="$1"
+  local cmd name
+  for cmd in ingest query lint; do
+    if [ "$use_prefix" -eq 1 ]; then
+      name="nexus-$cmd"
+    else
+      name="$cmd"
+    fi
+    remove_owned "$CLAUDE_COMMANDS_DIR/$name.md"
+  done
+}
+
+uninstall_claude() {
+  if [ "$PREFIX_SET" -eq 1 ]; then
+    uninstall_claude_one_mode "$PREFIX"
+  else
+    uninstall_claude_one_mode 0
+    uninstall_claude_one_mode 1
+  fi
+  log "nexus-skills removed (claude): $CLAUDE_COMMANDS_DIR"
+}
+
+uninstall_codex() {
+  local name
+  for name in lm-wiki-ingest lm-wiki-query lm-wiki-lint nexus-maintainer second-brain-para; do
+    remove_owned "$CODEX_SKILLS_DIR/$name"
+  done
+  log "nexus-skills removed (codex): $CODEX_SKILLS_DIR"
+}
+
+case "$HOST" in
+  claude)
+    uninstall_claude
+    ;;
+  codex)
+    uninstall_codex
+    ;;
+  all)
+    uninstall_claude
+    uninstall_codex
+    ;;
+esac
+
